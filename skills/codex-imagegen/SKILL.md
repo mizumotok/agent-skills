@@ -24,7 +24,7 @@ command -v codex && codex --version && codex login status
 - If `codex` is not found, stop and tell the user the Codex CLI is not installed. Do not fall back to an API-key path or to generating SVG/HTML.
 - `codex login status` must report `Logged in using ChatGPT`. That is the subscription-backed path this skill is built around.
 - If it reports API-key authentication instead, **stop and ask the user before continuing**. Generating in that mode bills their API account. Do not proceed on your own judgement, and never run `codex login --with-api-key` for them.
-- The flag syntax below requires codex-cli 0.150.1 or later. On an older version, check `codex exec --help` before invoking.
+- The flag syntax below was verified against codex-cli 0.150.1. On any other version, check `codex exec --help` before invoking rather than assuming it still applies.
 
 ## Non-negotiables
 
@@ -36,7 +36,7 @@ command -v codex && codex --version && codex login status
 
 ## Output path
 
-There is no default output directory. Choose the location from the project structure, the image's intended use, and the user's request.
+This skill has no fixed destination convention: choose the location from the project structure, the image's intended use, and the user's request. (Codex itself does have a default staging directory — see Where Codex actually saves the image below.)
 
 If the user explicitly specifies an output path or filename, use it, and preserve a supplied filename when practical.
 
@@ -109,7 +109,7 @@ Image generation can take minutes. If your harness imposes a command timeout, ra
 ### Flag notes
 
 - `--full-auto` was removed. Use `-s workspace-write` instead.
-- `--approve-for-me` cannot be combined with `-s`. Do not pass both.
+- `--approve-for-me` cannot be combined with `-s`: `error: the argument '--approve-for-me' cannot be used with '--sandbox <SANDBOX_MODE>'`. This workflow does not need it — omit it. (Appending `--help` hides the conflict, so check with a real invocation.)
 - `--skip-git-repo-check` is required outside a Git repository, and harmless inside one.
 - Add `-o <FILE>` to capture Codex's final message. Read it afterwards to recover the path Codex reports, instead of parsing the transcript.
 - If Codex fails with an unexpected-argument error, check `codex exec --help` rather than falling back to an API-key path.
@@ -117,14 +117,21 @@ Image generation can take minutes. If your harness imposes a command timeout, ra
 ### Reference images
 
 - Give each file its own `--image=<FILE>`, and quote the value: `--image="./My Assets/ref.png"`.
-- Do NOT use the `-i <FILE>` form. `-i` takes a variadic list, so it swallows the prompt argument that follows and Codex fails with `No prompt provided via stdin`.
-- Check every file with `test -f` before attaching it. Codex silently ignores a `--image=` path that does not exist — no warning, no error — so a mistyped path yields an image generated without the reference while still looking like a success.
+- Do NOT use `-i <FILE>` or `--image <FILE>` with a space. They are the same variadic option, and it greedily eats every bare token that follows — including your prompt. Only the `=` form leaves the prompt its own slot:
+
+  ```
+  $ codex debug prompt-input --image=/tmp/a.png ONE TWO
+  error: unexpected argument 'TWO' found     # one positional slot left, as intended
+  $ codex debug prompt-input --image /tmp/a.png ONE TWO
+  (accepted — ONE and TWO were both swallowed as image paths)
+  ```
+- Check every file with `test -f` before attaching it. Do not rely on Codex to reject a missing attachment: on 0.150.1 a nonexistent `--image=` path was observed to run to completion with no warning and no error, so a mistyped path yields an image generated without the reference while still looking like a success.
 - Attaching a file is not enough: the prompt must say what each one is for (style reference, composition reference, the subject to preserve).
 
 ### Working root
 
 - `-s workspace-write` makes only the working root writable. If the destination is outside it, pass `--add-dir "<DIR>"` to add that directory without moving the root.
-- Use `-C <DIR>` only when Codex should run *as if* from another directory. Relative paths in the prompt then resolve against `<DIR>`, so give the output as an **absolute** path — otherwise your own check runs in your working directory, the two disagree, and a successful generation looks like a failure.
+- Use `-C <DIR>` only when Codex should run *as if* from another directory. Whenever you pass `-C`, resolve **every** path to an absolute one first — the destination, and each `--image=` attachment. Relative paths resolve against `<DIR>` for Codex but against your own directory for your checks, so the two disagree and a successful generation looks like a failure.
 - Prefer `--add-dir` when the project should stay the working root; prefer `-C` for scratch work wholly outside the project.
 
 ### Prompt contents
