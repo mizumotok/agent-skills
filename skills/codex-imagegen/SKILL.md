@@ -106,6 +106,14 @@ A quoted here-document is literal, so both survive intact. Do not use `"..."` or
 
 Image generation can take minutes. If your harness imposes a command timeout, raise it to at least 10 minutes for this call — in Claude Code, set the Bash tool's `timeout` to `600000` ms. A timeout is not a generation failure: check the intended output path before reporting anything to the user.
 
+A stalled invocation looks nothing like a slow one. If the call is still running well past the timeout, check whether Codex ever started:
+
+```bash
+ls -t "${CODEX_HOME:-$HOME/.codex}"/sessions/*/*/*/*.jsonl 2>/dev/null | head -3
+```
+
+If no session was written for this run — and neither the output file nor the `-o` message file exists — Codex never got as far as recording the prompt. That is a stuck process, not a long generation. Stop it, then report. Do not re-run blindly: a second invocation can hit the same block and bills again. Look for other `codex` processes and for stale locks under `${CODEX_HOME:-$HOME/.codex}/thread-writer-locks/`, which Codex leaves behind when an earlier run is killed mid-flight.
+
 ### Flag notes
 
 - `--full-auto` was removed. Use `-s workspace-write` instead.
@@ -250,7 +258,7 @@ If the expected file does not exist, or fails any check above:
    ```
 
 3. Move or copy a candidate to the requested destination only when it is clearly the image that was just generated.
-4. Report failures accurately rather than claiming generation succeeded. A file that exists but fails the format or alpha check is a failure, not a success.
+4. Report failures accurately rather than claiming generation succeeded. A file that exists but fails the format or alpha check is a failure, not a success, and a run that produced no output, no `-o` message and no session never generated anything at all.
 
 If Codex reports that its built-in `image_gen` capability is unavailable:
 
