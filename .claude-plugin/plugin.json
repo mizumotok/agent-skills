@@ -1,0 +1,10 @@
+{
+  "name": "agent-skills",
+  "description": "Portable agent skills in the SKILL.md format, published by Kiyoshi Mizumoto.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Kiyoshi Mizumoto"
+  },
+  "homepage": "https://github.com/mizumotok/agent-skills",
+  "license": "MIT"
+}
